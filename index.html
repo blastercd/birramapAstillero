@@ -1,0 +1,325 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>BirraMap Astillero - Oficial</title>
+    
+    <link rel="icon" type="image/jpeg" href="logo.jpeg">
+    <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/css/bootstrap.min.css" rel="stylesheet">
+    <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" />
+    <link href="https://fonts.googleapis.com/css2?family=Bebas+Neue&family=Permanent+Marker&family=Roboto:wght@300;400;700&display=swap" rel="stylesheet">
+    
+    <style>
+        :root { --gold: #d4af37; --bg-dark: #121212; --card-bg: #1e1e1e; }
+        body { 
+            font-family: 'Roboto', sans-serif;
+            background: linear-gradient(rgba(0,0,0,0.85), rgba(0,0,0,0.85)), 
+                        url('https://images.unsplash.com/photo-1514933651103-005eec06c04b?q=80&w=2000&auto=format&fit=crop');
+            background-size: cover; background-attachment: fixed; color: #f8f9fa;
+        }
+        h3, h4, .modal-title { font-family: 'Bebas Neue', cursive; color: var(--gold); letter-spacing: 2px; }
+        .marker-font { font-family: 'Permanent Marker', cursive; }
+        .navbar { background: #2c1b0e !important; border-bottom: 3px solid var(--gold); }
+        #map { height: 450px; border-radius: 12px; border: 4px solid #333; z-index: 1; box-shadow: 0 10px 30px rgba(0,0,0,0.5); }
+        .panel-pizarra { background: var(--bg-dark); border: 1px solid #444; border-radius: 15px; padding: 20px; }
+        .card-ranking { background: var(--card-bg); border-left: 5px solid var(--gold); margin-bottom: 12px; border: none; }
+        .price-badge { font-family: 'Permanent Marker', cursive; color: var(--gold); font-size: 1.8rem; }
+        .btn-vamos { background: var(--gold); color: black; font-weight: 900; text-decoration: none; display: block; text-align: center; padding: 8px; border-radius: 6px; width: 100%; border: none; }
+        .btn-opinar { color: var(--gold); border: 1px solid var(--gold); background: transparent; font-size: 0.75rem; font-weight: bold; padding: 5px 10px; border-radius: 5px; margin-top: 5px; }
+        .form-control, .form-select { background-color: #2a2a2a !important; color: white !important; border: 1px solid #555 !important; }
+        .form-control::placeholder { color: #888 !important; }
+        .modal-content { background-color: #1a1a1a; border: 2px solid var(--gold); color: white; }
+        .comment-item { background: #2a2a2a; border-radius: 8px; padding: 12px; margin-bottom: 10px; border: 1px solid #333; }
+        .comment-img { width: 100%; border-radius: 8px; margin-top: 10px; border: 1px solid var(--gold); }
+        .hidden { display: none !important; }
+        .floating-logo { position: fixed; bottom: 20px; left: 20px; width: 60px; height: 60px; border-radius: 50%; background-image: url('logo.jpeg'); background-size: cover; border: 2px solid var(--gold); z-index: 1000; cursor: pointer; transition: transform 0.2s; box-shadow: 0 4px 15px rgba(0,0,0,0.5); }
+        .floating-logo:active { transform: scale(2.0); }
+    </style>
+</head>
+<body>
+
+<nav class="navbar navbar-dark sticky-top">
+    <div class="container d-flex justify-content-between align-items-center">
+        <span class="navbar-brand mb-0 h1 fs-2" id="logo-beer" style="cursor:pointer">
+            🍺 <span class="marker-font">BirraMap</span> Astillero
+        </span>
+        <div id="adminStats" class="hidden">
+            <span class="badge bg-warning text-dark fw-bold">SESIONES: <span id="numVisitas">0</span></span>
+        </div>
+    </div>
+</nav>
+
+<div class="container mt-4 pb-5">
+    <section id="seccionAdmin" class="hidden mb-4">
+        <div class="panel-pizarra border-warning">
+            <div class="d-flex justify-content-between align-items-center mb-3">
+                <h4 class="m-0 text-warning">MODO ADMINISTRADOR</h4>
+                <button class="btn btn-danger btn-sm fw-bold" onclick="window.cerrarAdmin()">CERRAR ADMIN</button>
+            </div>
+            <form id="formBar" class="row g-2">
+                <div class="col-md-3">
+                    <label class="small text-warning">Nombre:</label>
+                    <input type="text" id="nombre" class="form-control" placeholder="Ej: Bar El Puerto" required>
+                </div>
+                <div class="col-md-3">
+                    <label class="small text-warning">Ubicación:</label>
+                    <div class="input-group">
+                        <input type="text" id="direccion" class="form-control" placeholder="Ej: Calle Real 10 o coordenadas" required>
+                        <a href="https://www.google.com/maps" target="_blank" class="btn btn-outline-warning">MAPS</a>
+                    </div>
+                </div>
+                <div class="col-md-2">
+                    <label class="small text-warning">Precio:</label>
+                    <input type="number" id="precio" class="form-control" step="0.01" placeholder="Ej: 2.50" required>
+                </div>
+                <div class="col-md-2">
+                    <label class="small text-warning">Tapa:</label>
+                    <select id="tapa" class="form-select">
+                        <option value="no">Sin Tapa</option>
+                        <option value="si">Con Tapa 🍢</option>
+                    </select>
+                </div>
+                <div class="col-md-2 d-flex align-items-end">
+                    <button type="submit" class="btn btn-warning w-100 fw-bold">AÑADIR</button>
+                </div>
+            </form>
+        </div>
+    </section>
+
+    <div class="row">
+        <div class="col-lg-7"><div id="map" class="mb-4"></div></div>
+        <div class="col-lg-5">
+            <div class="panel-pizarra">
+                <h3 class="text-center border-bottom border-secondary pb-2 mb-4">📋 RANKING PRECIOS</h3>
+                <div id="rankingLista" style="max-height: 600px; overflow-y: auto;"></div>
+            </div>
+        </div>
+    </div>
+</div>
+
+<div class="modal fade" id="modalReseñas" tabindex="-1" aria-hidden="true">
+    <div class="modal-dialog modal-lg">
+        <div class="modal-content">
+            <div class="modal-header border-secondary">
+                <h5 class="modal-title" id="modalTituloBar">DETALLES</h5>
+                <button type="button" class="btn-close btn-close-white" data-bs-dismiss="modal"></button>
+            </div>
+            <div class="modal-body">
+                <div class="row">
+                    <div class="col-md-5 border-end border-secondary">
+                        <h6 class="text-warning mb-3">OPINAR</h6>
+                        <input type="hidden" id="currentBarId">
+                        <select id="rating" class="form-select mb-2">
+                            <option value="5">⭐⭐⭐⭐⭐</option>
+                            <option value="4">⭐⭐⭐⭐</option>
+                            <option value="3">⭐⭐⭐</option>
+                            <option value="2">⭐⭐</option>
+                            <option value="1">⭐</option>
+                        </select>
+                        <textarea id="textoComentario" class="form-control mb-2" rows="3" placeholder="Ej: Muy buena atención..."></textarea>
+                        <label class="small text-white-50">Subir foto:</label>
+                        <input type="file" id="fotoComentario" class="form-control form-control-sm mb-3" accept="image/*">
+                        <button class="btn btn-warning w-100 fw-bold" onclick="window.guardarComentario()">PUBLICAR</button>
+                    </div>
+                    <div class="col-md-7">
+                        <h6 class="text-warning mb-3">RESEÑAS</h6>
+                        <div id="contenedorComentariosReal"></div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+
+<div class="floating-logo" onclick="window.location.href='mailto:blastercd@hotmail.com'"></div>
+
+<script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/js/bootstrap.bundle.min.js"></script>
+<script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
+
+<script type="module">
+    import { initializeApp } from "https://www.gstatic.com/firebasejs/10.7.1/firebase-app.js";
+    import { getFirestore, collection, addDoc, onSnapshot, doc, updateDoc, deleteDoc, getDoc, setDoc, arrayUnion, arrayRemove } from "https://www.gstatic.com/firebasejs/10.7.1/firebase-firestore.js";
+
+    const firebaseConfig = {
+        apiKey: "AIzaSyBQzxl9hDoaXdxHPaAnii_NPiI3jYHTw1Y",
+        authDomain: "baresasti.firebaseapp.com",
+        projectId: "baresasti",
+        storageBucket: "baresasti.firebasestorage.app",
+        messagingSenderId: "525936483505",
+        appId: "1:525936483505:web:d28cff79943cbec1291690"
+    };
+
+    const app = initializeApp(firebaseConfig);
+    const db = getFirestore(app);
+    const baresCol = collection(db, "baresasti");
+
+    let bares = [];
+    let map, markers = [], esAdmin = false;
+
+    // --- MAPA IGUAL AL QUE TE FUNCIONA ---
+    function initMap() {
+        map = L.map('map').setView([43.4017, -3.8214], 16);
+        L.tileLayer('https://server.arcgisonline.com/ArcGIS/rest/services/World_Imagery/MapServer/tile/{z}/{y}/{x}', { 
+            attribution: 'Esri' 
+        }).addTo(map);
+        trackVisitas();
+    }
+
+    onSnapshot(baresCol, (snapshot) => {
+        bares = snapshot.docs.map(d => ({ id: d.id, ...d.data() }));
+        renderDatos();
+    });
+
+    function renderDatos() {
+        markers.forEach(m => map.removeLayer(m));
+        markers = [];
+        const lista = document.getElementById('rankingLista');
+        lista.innerHTML = '';
+        const ordenados = [...bares].sort((a, b) => a.precio - b.precio);
+
+        ordenados.forEach((bar, index) => {
+            const val = obtenerMedia(bar.comentarios);
+            const m = L.marker([bar.lat, bar.lng]).addTo(map).bindPopup(`<b>${bar.nombre.toUpperCase()}</b>`);
+            markers.push(m);
+            
+            const card = document.createElement('div');
+            card.className = 'card card-ranking shadow-sm';
+            card.innerHTML = `
+                <div class="card-body p-3">
+                    <div class="row align-items-center">
+                        <div class="col-8" onclick="map.setView([${bar.lat}, ${bar.lng}], 18)" style="cursor:pointer">
+                            <h6 class="mb-1 text-white fw-bold">${index + 1}. ${bar.nombre.toUpperCase()} ${bar.tapa=='si'?'🍢':''}</h6>
+                            <div style="font-size:0.75rem; color:#d4af37;">${val.estrellas} (${val.texto})</div>
+                            <button class="btn btn-opinar" onclick="event.stopPropagation(); window.verOpiniones('${bar.id}')">LEER OPINIONES</button>
+                        </div>
+                        <div class="col-4 text-end">
+                            <div class="price-badge mb-2">${bar.precio.toFixed(2)}€</div>
+                            <button class="btn-vamos" onclick="window.open('https://www.google.com/maps/dir/?api=1&destination=${bar.lat},${bar.lng}&travelmode=walking')">VAMOS</button>
+                        </div>
+                    </div>
+                    ${esAdmin ? `<div class="mt-2 border-top border-secondary pt-2"><button class="btn btn-sm btn-outline-danger w-100 fw-bold" onclick="window.borrarBar('${bar.id}')">BORRAR LOCAL</button></div>` : ''}
+                </div>
+            `;
+            lista.appendChild(card);
+        });
+    }
+
+    function obtenerMedia(com) {
+        if (!com || com.length === 0) return { texto: "0.0", estrellas: "☆☆☆☆☆" };
+        let suma = com.reduce((acc, c) => acc + parseInt(c.rating), 0);
+        let media = (suma / com.length).toFixed(1);
+        return { texto: media, estrellas: "⭐".repeat(Math.round(media)) };
+    }
+
+    window.verOpiniones = (id) => {
+        const bar = bares.find(b => b.id == id);
+        document.getElementById('currentBarId').value = id;
+        document.getElementById('modalTituloBar').innerText = bar.nombre.toUpperCase();
+        dibujarComentarios(bar);
+        new bootstrap.Modal(document.getElementById('modalReseñas')).show();
+    };
+
+    function dibujarComentarios(bar) {
+        const contenedor = document.getElementById('contenedorComentariosReal');
+        contenedor.innerHTML = bar.comentarios?.length ? '' : '<p class="text-muted small">Sin reseñas.</p>';
+        bar.comentarios?.forEach((c, idx) => {
+            const div = document.createElement('div');
+            div.className = 'comment-item';
+            div.innerHTML = `
+                <div class="d-flex justify-content-between small"><span>${'⭐'.repeat(c.rating)}</span><span class="text-muted">${c.fecha}</span></div>
+                <span class="d-block mt-2">${c.texto}</span>
+                ${c.foto ? `<img src="${c.foto}" class="comment-img">` : ''}
+                ${esAdmin ? `<button class="btn btn-sm btn-danger mt-2 w-100" onclick="window.borrarReseña('${bar.id}', ${idx})">Borrar</button>` : ''}
+            `;
+            contenedor.appendChild(div);
+        });
+    }
+
+    window.guardarComentario = async () => {
+        const id = document.getElementById('currentBarId').value;
+        const texto = document.getElementById('textoComentario').value;
+        const rating = document.getElementById('rating').value;
+        const file = document.getElementById('fotoComentario').files[0];
+        if(!texto) return;
+
+        const save = async (img = null) => {
+            await updateDoc(doc(db, "baresasti", id), {
+                comentarios: arrayUnion({ texto, rating, fecha: new Date().toLocaleDateString(), foto: img })
+            });
+            document.getElementById('textoComentario').value = '';
+            document.getElementById('fotoComentario').value = '';
+            bootstrap.Modal.getInstance(document.getElementById('modalReseñas')).hide();
+        };
+
+        if(file) {
+            const reader = new FileReader();
+            reader.onload = (e) => save(e.target.result);
+            reader.readAsDataURL(file);
+        } else save();
+    };
+
+    document.getElementById('formBar').addEventListener('submit', async (e) => {
+        e.preventDefault();
+        const dir = document.getElementById('direccion').value;
+        let lat, lng;
+        
+        if(dir.includes(',')) {
+            [lat, lng] = dir.split(',').map(n => parseFloat(n.trim()));
+        } else {
+            const res = await fetch(`https://nominatim.openstreetmap.org/search?format=json&q=${encodeURIComponent(dir + ", Astillero")}`);
+            const data = await res.json();
+            if(data[0]) { lat = parseFloat(data[0].lat); lng = parseFloat(data[0].lon); }
+        }
+
+        if(lat && lng) {
+            await addDoc(baresCol, { 
+                nombre: document.getElementById('nombre').value, 
+                precio: parseFloat(document.getElementById('precio').value), 
+                tapa: document.getElementById('tapa').value, 
+                lat, lng, comentarios: [] 
+            });
+            e.target.reset();
+        } else alert("No se encontró la dirección");
+    });
+
+    document.getElementById('logo-beer').addEventListener('dblclick', () => {
+        if(prompt("Clave:") === "astillero2026") {
+            esAdmin = true;
+            document.getElementById('seccionAdmin').classList.remove('hidden');
+            document.getElementById('adminStats').classList.remove('hidden');
+            renderDatos();
+        }
+    });
+
+    window.cerrarAdmin = () => {
+        esAdmin = false;
+        document.getElementById('seccionAdmin').classList.add('hidden');
+        document.getElementById('adminStats').classList.add('hidden');
+        renderDatos();
+    };
+
+    window.borrarBar = async (id) => { if(confirm("¿Eliminar bar?")) await deleteDoc(doc(db, "baresasti", id)); };
+    
+    window.borrarReseña = async (barId, idx) => {
+        const bar = bares.find(b => b.id == barId);
+        await updateDoc(doc(db, "baresasti", barId), { comentarios: arrayRemove(bar.comentarios[idx]) });
+    };
+
+    async function trackVisitas() {
+        const statsRef = doc(db, "stats", "visitas");
+        try {
+            const docSnap = await getDoc(statsRef);
+            if (!sessionStorage.getItem('v-sesion')) {
+                if (!docSnap.exists()) await setDoc(statsRef, { count: 1 });
+                else await updateDoc(statsRef, { count: docSnap.data().count + 1 });
+                sessionStorage.setItem('v-sesion', '1');
+            }
+        } catch (e) {}
+        onSnapshot(statsRef, d => { if(d.exists()) document.getElementById('numVisitas').innerText = d.data().count; });
+    }
+
+    window.onload = initMap;
+</script>
+</body>
+</html>
